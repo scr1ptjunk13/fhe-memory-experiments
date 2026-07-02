@@ -13,7 +13,7 @@ pub use oracle::PlainArray;
 mod tests {
     use super::*;
     use tfhe::prelude::*;
-    use tfhe::{ConfigBuilder, FheUint32, generate_keys, set_server_key};
+    use tfhe::{ConfigBuilder, FheUint8, FheUint32, generate_keys, set_server_key};
 
     #[test]
     fn linear_scan_read_matches_oracle_n8() {
@@ -38,6 +38,47 @@ mod tests {
                 "linear-scan read mismatch at index {i}: got {got}, oracle {}",
                 oracle.read(i)
             );
+        }
+    }
+
+    #[test]
+    fn linear_scan_write_matches_oracle_n8() {
+        let config = ConfigBuilder::default().build();
+        let (client_key, server_key) = generate_keys(config);
+        set_server_key(server_key);
+
+        let plain: Vec<u8> = vec![17, 3, 200, 0, 99, 42, 255, 7];
+        let fresh = 123u8;
+
+        // Write `fresh` at every index in turn, each time starting from the
+        // original array. Two assertions per write: the written slot took the
+        // new value, and every other slot is byte-equal to the original —
+        // untouched-slots-unchanged is the entire point (Phase 3 hardens this
+        // same property to noise-indistinguishability against rewinding).
+        for i in 0..plain.len() {
+            let mut oracle = PlainArray::new(plain.clone());
+            let mut enc = FheArray::encrypt(&plain, &client_key);
+
+            let enc_idx =
+                FheUint32::try_encrypt(i as u32, &client_key).expect("encrypt index");
+            let enc_val = FheUint8::try_encrypt(fresh, &client_key).expect("encrypt value");
+            enc.write(&enc_idx, &enc_val);
+            oracle.write(i, fresh);
+
+            let got = enc.decrypt(&client_key);
+            assert_eq!(
+                got[i],
+                oracle.read(i),
+                "write at {i}: written slot is {}, expected {fresh}",
+                got[i]
+            );
+            for j in (0..plain.len()).filter(|&j| j != i) {
+                assert_eq!(
+                    got[j], plain[j],
+                    "write at {i}: untouched slot {j} changed from {} to {}",
+                    plain[j], got[j]
+                );
+            }
         }
     }
 }

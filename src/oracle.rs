@@ -21,4 +21,8 @@ impl PlainArray {
     pub fn read(&self, idx: usize) -> u8 {
         self.data[idx]
     }
+
+    pub fn write(&mut self, idx: usize, val: u8) {
+        self.data[idx] = val;
+    }
 }

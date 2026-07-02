@@ -51,4 +51,28 @@ impl FheArray {
 
         acc
     }
+
+    /// Linear-scan write at an encrypted index: read's branches flipped.
+    ///
+    ///     arr[j] = if_then_else( eq(enc_idx, j), enc_val, arr[j] )
+    ///
+    /// Requires the server key to be set on the current thread via
+    /// `tfhe::set_server_key(..)`. Panics if `self` is empty.
+    pub fn write(&mut self, enc_idx: &FheUint32, enc_val: &FheUint8) {
+        assert!(!self.data.is_empty(), "FheArray::write on empty array");
+
+        for (j, slot) in self.data.iter_mut().enumerate() {
+            let eq = enc_idx.eq(j as u32);
+            let new = eq.if_then_else(enc_val, &*slot);
+            *slot = new;
+        }
+    }
+
+    /// Decrypt the whole array. Test/debug helper.
+    pub fn decrypt(&self, client_key: &ClientKey) -> Vec<u8> {
+        self.data.iter().map(|c| c.decrypt(client_key)).collect()
+    }
 }
+
+// there should be no issue with sustained noise increment imo , for the arr[i] = Σ_{j=0..N-1} 1[i= j] · arr[j]
+//

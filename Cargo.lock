@@ -353,6 +353,7 @@ dependencies = [
 name = "fhe-memory-lab"
 version = "0.0.1"
 dependencies = [
+ "bincode",
  "criterion",
  "serde_json",
  "tfhe",

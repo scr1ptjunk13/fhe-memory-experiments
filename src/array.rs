@@ -13,7 +13,8 @@ use tfhe::prelude::*;
 use tfhe::{ClientKey, FheUint8, FheUint32};
 
 pub struct FheArray {
-    data: Vec<FheUint8>,
+    // ponytail: pub so examples can snapshot/diff raw ciphertexts; no invariant to protect
+    pub data: Vec<FheUint8>,
 }
 
 impl FheArray {
